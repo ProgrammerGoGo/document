@@ -1,3 +1,14 @@
 动态规划
 　　将一个问题拆成几个子问题，分别求解这些子问题，即可推断出大问题的解。
- https://www.zhihu.com/question/23995189
+ https://www.zhihu.com/question/23995189/answer/613096905
+ 动态规划初步·各种子序列问题：https://www.luogu.com.cn/blog/pks-LOVING/junior-dynamic-programming-dong-tai-gui-hua-chu-bu-ge-zhong-zi-xu-lie
+
+
+
+============ 练习题 ==============
+1、最长上升子序列
+https://leetcode.cn/problems/longest-increasing-subsequence/solutions/?orderBy=most_votes
+题解：https://leetcode.cn/problems/longest-increasing-subsequence/solutions/7196/dong-tai-gui-hua-er-fen-cha-zhao-tan-xin-suan-fa-p/?orderBy=most_votes
+
+2、
+
