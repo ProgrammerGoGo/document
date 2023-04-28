@@ -28,4 +28,5 @@ https://www.plantuml.com/plantuml/umla/ZLDRJi905FsVLNG3RC2aXAqqjXya85ggtnA3b8UsW
 
  =====================
  动态规划
+　　将一个问题拆成几个子问题，分别求解这些子问题，即可推断出大问题的解。
  https://www.zhihu.com/question/23995189
