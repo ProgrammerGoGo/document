@@ -27,8 +27,68 @@ https://leetcode.cn/problems/longest-common-subsequence/
 差分数组的主要适用场景是频繁对原始数组的某个区间的元素进行增减。
 
 
-滑动窗口：
+滑动窗口：窗口一般都是 左闭右开
+框架：
+int left = 0, right = 0;
+
+while (left < right && right < s.size()) {
+    // 增大窗口
+    window.add(s[right]);
+    right++;
+    
+    while (window needs shrink) {
+        // 缩小窗口
+        window.remove(s[left]);
+        left++;
+    }
+}
+
+
 
 二分搜索（普通、左边界、右边界）
 
 
+由于二叉树没办法简单改写成迭代形式，所以一般说二叉树的遍历框架都是指递归的形式。
+二叉树解题思路（都属于递归遍历）：
+1、遍历整棵树，利用 traverse 方法和外部变量
+
+          // 外部变量
+          List<Integer> res = new LinkedList<>();
+
+          // 返回前序遍历结果
+          List<Integer> preorderTraverse(TreeNode root) {
+              traverse(root);
+              return res;
+          }
+
+          // 二叉树遍历函数
+          void traverse(TreeNode root) {
+              if (root == null) {
+                  return;
+              }
+              // 前序位置
+              res.add(root.val);
+              traverse(root.left);
+              traverse(root.right);
+          }
+2、子问题分解
+
+           // 定义：输入一棵二叉树的根节点，返回这棵树的前序遍历结果
+           List<Integer> preorderTraverse(TreeNode root) {
+               List<Integer> res = new LinkedList<>();
+               if (root == null) {
+                   return res;
+               }
+               // 前序遍历的结果，root.val 在第一个
+               res.add(root.val);
+               // 利用函数定义，后面接着左子树的前序遍历结果
+               res.addAll(preorderTraverse(root.left));
+               // 利用函数定义，最后接着右子树的前序遍历结果
+               res.addAll(preorderTraverse(root.right));
+               return res;
+           }
+           
+
+前序位置的代码执行是自顶向下的，而后序位置的代码执行是自底向上的。
+因为前序位置是刚刚进入节点的时刻，后序位置是即将离开节点的时刻。
+但这里面大有玄妙，意味着前序位置的代码只能从函数参数中获取父节点传递来的数据，而后序位置的代码不仅可以获取参数数据，还可以获取到子树通过函数返回值传递回来的数据。
