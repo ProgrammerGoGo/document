@@ -52,19 +52,26 @@ https://blog.csdn.net/yhl_jxy
 深入理解RocketMQ Rebalance机制
 https://cloud.tencent.com/developer/article/1554950
 
-===========
+===== spring ======
 
 spring 源码解析
 https://www.cnblogs.com/java-chen-hao/category/1480619.html
 
-===========
+===== es ======
 
 es权威指南
 https://www.elastic.co/guide/cn/elasticsearch/guide/current/mapping-intro.html
 
 
-===========
+===== mysql ======
 
 jdbcTemplate
 https://mp.weixin.qq.com/s?__biz=MzA5MTkxMDQ4MQ==&mid=2648936449&idx=2&sn=da1e98e5914821f040d5530e8ca9d9bc&scene=21#wechat_redirect
+
+Hikari
+https://github.com/brettwooldridge/HikariCP#configuration-knobs-baby
+
+
+
+
 
