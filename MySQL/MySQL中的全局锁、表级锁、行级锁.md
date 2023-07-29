@@ -28,13 +28,18 @@ MySQL提供加全局读锁的方法：`Flush tables with read lock(FTWRL)`
 ## 二、表级锁
 MySQL里面表级锁有两种，一种是表锁，一种是元数据锁(meta data lock,MDL)  
 
+### 表锁
 表锁的语法是:`lock tables ... read/write`  
 可以用`unlock tables`主动释放锁，也可以在客户端断开的时候自动释放。`lock tables`语法除了会限制别的线程的读写外，也限定了本线程接下来的操作对象。  
 对于`InnoDB`这种支持行锁的引擎，一般不使用`lock tables`命令来控制并发，毕竟锁住整个表的影响面还是太大。
 
+### MDL(meta data lock)
 `MDL`不需要显式使用，在访问一个表的时候会被自动加上。  
 `MDL`的作用：保证读写的正确性。  
 在对一个表做 **增删改查** 操作的时候，加`MDL`读锁；当要对 **表做结构变更** 操作的时候，加`MDL`写锁。  
 读锁之间不互斥。读写锁之间，写锁之间是互斥的，用来保证变更表结构操作的安全性。  
 **`MDL`会直到事务提交才会释放，在做表结构变更的时候，一定要小心不要导致锁住线上查询和更新。**  
-[]()
+[MySQL的MDL锁是什么?](https://github.com/ProgrammerGoGo/document/blob/main/MySQL/MySQL%E7%9A%84MDL%E9%94%81%E6%98%AF%E4%BB%80%E4%B9%88%3F.md)
+
+## 三、行锁
+待补充。。。
