@@ -22,7 +22,7 @@ SQL更新语句执行流程和 [一条SQL查询语句的执行流程](https://gi
 
 这里我给出这个update语句的执行流程图，图中浅色框表示是在InnoDB内部执行的，深色框表示是在执行器中执行的。
 
-![image](https://github.com/ProgrammerGoGo/document/assets/98639494/211f8851-06ee-40d0-9ee7-4644b4f7962a)
+![update语句的执行流程图](image/update语句的执行流程图.png)
 
 
 
