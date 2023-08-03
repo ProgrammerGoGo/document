@@ -31,6 +31,8 @@
 对于有索引的表，执行的逻辑也差不多。第一次调用的是“取满足条件的第一行”这个接口（通过索引树），之后循环取“满足条件的下一行”这个接口，这些接口都是引擎中已经定义好的。
 
 
+[SQL执行流程](https://github.com/ProgrammerGoGo/document/blob/main/MySQL/image/MySQL%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%9E%B6%E6%9E%84%E7%A4%BA%E6%84%8F%E5%9B%BE.png)
+
 
 
 
