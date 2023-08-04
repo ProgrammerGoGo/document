@@ -76,13 +76,13 @@ select * from t where k in (k1, k2)
 
 所以，如果要简单地对比这两个机制在提升更新性能上的收益的话，`redo log` 主要节省的是随机写磁盘的IO消耗（转成顺序写），而`change buffer`主要节省的则是随机读磁盘的IO消耗。
 
-# 问题：change buffer一开始是写内存的，那么如果这个时候机器掉电重启，会不会导致change buffer丢失呢？change buffer丢失可不是小事儿，再从磁盘读入数据可就没有了merge过程，就等于是数据丢失了。会不会出现这种情况呢？
+# 问题1：change buffer一开始是写内存的，那么如果这个时候机器掉电重启，会不会导致change buffer丢失呢？change buffer丢失可不是小事儿，再从磁盘读入数据可就没有了merge过程，就等于是数据丢失了。会不会出现这种情况呢？
 
 不会丢失。
 
 虽然是只更新内存，但是在事务提交的时候，我们把`change buffer`的操作也记录到`redo log`里了，所以崩溃恢复的时候，`change buffer`也能找回来。
 
-# 问题：merge 的过程是否会把数据直接写回磁盘？
+# 问题2：merge 的过程是否会把数据直接写回磁盘？
 
 `merge`的执行流程是这样的：
 
