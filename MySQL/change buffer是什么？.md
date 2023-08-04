@@ -34,7 +34,7 @@
 ```sql
 insert into t(id,k) values(id1,k1),(id2,k2);
 ```
-这里，我们假设当前k索引树的状态，查找到位置后，k1所在的数据页在内存(InnoDB buffer pool)中，k2所在的数据页不在内存中。则带`change buffer`的更新状态图如下。
+这里，我们假设当前k索引树的状态，查找到位置后，k1所在的数据页在内存(InnoDB buffer pool)中，k2所在的数据页不在内存中。则带`change buffer`的更新状态图如下。
 
 ![带change buffer的更新过程](image/带change%20buffer的更新过程.jpg)
 
