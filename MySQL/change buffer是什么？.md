@@ -36,7 +36,7 @@ insert into t(id,k) values(id1,k1),(id2,k2);
 ```
 这里，我们假设当前k索引树的状态，查找到位置后，k1所在的数据页在内存(InnoDB buffer pool)中，k2所在的数据页不在内存中。则带`change buffer`的更新状态图如下。
 
-![带change buffer的更新过程](image/带change buffer的更新过程.jpg)
+![带change buffer的更新过程](image/带change%20buffer的更新过程.jpg)
 
 分析这条更新语句，你会发现它涉及了四个部分：内存、redo log（ib_log_fileX）、 数据表空间（t.ibd）、系统表空间（ibdata1）。
 
@@ -62,7 +62,7 @@ select * from t where k in (k1, k2)
 
 这两个读请求的流程图如下。
 
-![带change buffer的读过程](image/带change buffer的读过程.jpg)
+![1](image/带change%20buffer的读过程.jpg)
 
 如果读语句发生在更新语句后不久，内存中的数据都还在，那么此时的这两个读操作就与系统表空间（ibdata1）和 redo log（ib_log_fileX）无关了。所以，我在图中就没画出这两部分。
 
