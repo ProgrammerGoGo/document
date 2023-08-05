@@ -32,21 +32,42 @@ SQL更新语句执行流程和 [一条SQL查询语句的执行流程](https://gi
 
 # 问题1：在两阶段提交的不同时刻，MySQL异常重启会出现什么现象？
 
-## 时刻1
+> 崩溃恢复时的判断规则：
+> 1. 如果`redo log`里面的事务是完整的，也就是已经有了`commit`标识，则直接提交；
+> 2. 如果`redo log`里面的事务只有完整的`prepare`，则判断对应的事务`binlog`是否存在并完整：  
+>   a. 如果是，则提交事务；  
+>   b. 否则，回滚事务。  
+
+## 时刻1（属于 2(b) 情况）
 如果在写入`redo log`处于`prepare`阶段之后、写`binlog`之前，发生了崩溃（crash），由于此时`binlog`还没写，`redo log`也还没提交，所以崩溃恢复的时候，这个事务会回滚。这时候，`binlog`还没写，所以也不会传到备库。
 
-## 时刻2
-如果在`binlog`写完，`redo log`还没`commit`前发生crash，那崩溃恢复的时候MySQL会怎么处理？
+## 时刻2（属于 2(a) 情况）
+如果在`binlog`写完，`redo log`还没`commit`前发生crash，崩溃恢复过程中事务会被提交。
 
-崩溃恢复时的判断规则。
+> redo log和binlog的其他相关问题见 [redo log 和 binlog 日志分别是什么](https://github.com/ProgrammerGoGo/document/blob/main/MySQL/redo%20log%20%E5%92%8C%20binlog%20%E6%97%A5%E5%BF%97%E5%88%86%E5%88%AB%E6%98%AF%E4%BB%80%E4%B9%88.md) 问题部分
 
-* 如果`redo log`里面的事务是完整的，也就是已经有了`commit`标识，则直接提交；
 
-* 如果`redo log`里面的事务只有完整的`prepare`，则判断对应的事务`binlog`是否存在并完整：  
-a. 如果是，则提交事务；  
-b. 否则，回滚事务。  
 
-这里，时刻B发生crash对应的就是2(a)的情况，崩溃恢复过程中事务会被提交。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
