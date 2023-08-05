@@ -3,6 +3,7 @@
 
 [02讲日志系统：一条SQL更新语句是如何执行的](https://funnylog.gitee.io/mysql45/02%E8%AE%B2%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F%EF%BC%9A%E4%B8%80%E6%9D%A1SQL%E6%9B%B4%E6%96%B0%E8%AF%AD%E5%8F%A5%E6%98%AF%E5%A6%82%E4%BD%95%E6%89%A7%E8%A1%8C%E7%9A%84.html)
 
+> 先来了解 [redo log 和 binlog](https://github.com/ProgrammerGoGo/document/edit/main/MySQL/redo%20log%20%E5%92%8C%20binlog%20%E6%97%A5%E5%BF%97%E5%88%86%E5%88%AB%E6%98%AF%E4%BB%80%E4%B9%88.md)
 
 SQL更新语句执行流程和 [一条SQL查询语句的执行流程](https://github.com/ProgrammerGoGo/document/blob/main/MySQL/%E4%B8%80%E6%9D%A1SQL%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B.md) 相似，不同点主要在“执行器”和“存储引擎”的操作流程上。
 
