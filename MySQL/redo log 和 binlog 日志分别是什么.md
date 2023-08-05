@@ -12,7 +12,7 @@ MySQL里经常说到的WAL技术，WAL的全称是Write-Ahead Logging，它的�
 
 InnoDB的`redo log`是固定大小的，比如可以配置为一组4个文件，每个文件的大小是1GB，那么`redo log`总共就可以记录4GB的操作。从头开始写，写到末尾就又回到开头循环写，如下面这个图所示。
 
-![redo log指针](image/redo log指针.png)
+![redo log指针](image/redo%20log指针.png)
 
 `write pos`是当前记录的位置，一边写一边后移，写到第3号文件末尾后就回到0号文件开头。`checkpoint`是当前要擦除的位置，也是往后推移并且循环的，擦除记录前要把记录更新到数据文件。
 
