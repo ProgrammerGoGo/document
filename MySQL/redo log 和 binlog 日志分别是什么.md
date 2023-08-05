@@ -16,7 +16,7 @@ InnoDB的`redo log`是固定大小的，比如可以配置为一组4个文件，
 
 `write pos`是当前记录的位置，一边写一边后移，写到第3号文件末尾后就回到0号文件开头。`checkpoint`是当前要擦除的位置，也是往后推移并且循环的，擦除记录前要把记录更新到数据文件。
 
-`write pos`和`checkpoint`之间的是`redo log`还空着的部分，可以用来记录新的操作。如果`write pos`追上`checkpoint`，表示`redo log`满了，这时候不能再执行新的更新，得停下来先擦掉一些记录（即刷脏页，flush），把`checkpoint`推进一下。
+`write pos`和`checkpoint`之间的是`redo log`还空着的部分，可以用来记录新的操作。如果`write pos`追上`checkpoint`，表示`redo log`满了，这时候不能再执行新的更新，得停下来先擦掉一些记录（即刷脏页，flush。[MySQL中的脏页以及刷脏页](https://github.com/ProgrammerGoGo/document/blob/main/MySQL/MySQL%E4%B8%AD%E7%9A%84%E8%84%8F%E9%A1%B5%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F.md)），把`checkpoint`推进一下。
 
 有了`redo log`，InnoDB就可以保证即使数据库发生异常重启，之前提交的记录都不会丢失，这个能力称为`crash-safe`。
 
