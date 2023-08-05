@@ -12,7 +12,7 @@ MySQL里经常说到的WAL技术，WAL的全称是Write-Ahead Logging，它的�
 
 InnoDB的`redo log`是固定大小的，比如可以配置为一组4个文件，每个文件的大小是1GB，那么`redo log`总共就可以记录4GB的操作。从头开始写，写到末尾就又回到开头循环写，如下面这个图所示。
 
-![image](https://github.com/ProgrammerGoGo/document/assets/98639494/c7238637-de01-49eb-9ce7-29d15d2c30b9)
+![redo log指针](image/redo log指针.png)
 
 `write pos`是当前记录的位置，一边写一边后移，写到第3号文件末尾后就回到0号文件开头。`checkpoint`是当前要擦除的位置，也是往后推移并且循环的，擦除记录前要把记录更新到数据文件。
 
@@ -40,8 +40,8 @@ InnoDB的`redo log`是固定大小的，比如可以配置为一组4个文件，
 > 崩溃恢复时的判断规则：
 > 1. 如果`redo log`里面的事务是完整的，也就是已经有了`commit`标识，则直接提交；
 > 2. 如果`redo log`里面的事务只有完整的`prepare`，则判断对应的事务`binlog`是否存在并完整：  
->   a. 如果是，则提交事务；  
->   b. 否则，回滚事务。  
+>     a. 如果是，则提交事务；  
+>     b. 否则，回滚事务。  
 
 ## 时刻1（属于 2(b) 情况）
 如果在写入`redo log`处于`prepare`阶段之后、写`binlog`之前，发生了崩溃（crash），由于此时`binlog`还没写，`redo log`也还没提交，所以崩溃恢复的时候，这个事务会回滚。这时候，`binlog`还没写，所以也不会传到备库。
@@ -87,7 +87,7 @@ InnoDB的`redo log`是固定大小的，比如可以配置为一组4个文件，
 
 只用`binlog`来实现崩溃恢复的流程图如下。
 
-![image](https://github.com/ProgrammerGoGo/document/assets/98639494/63f5233b-3217-4041-900d-1ddc8351720a)
+![只用binlog的故障恢复](image/只用binlog的故障恢复.png)
 
 这样的流程下，`binlog`还是不能支持崩溃恢复的，因为`binlog`没有能力恢复“数据页”。
 
