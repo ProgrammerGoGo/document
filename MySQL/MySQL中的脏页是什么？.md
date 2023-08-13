@@ -12,6 +12,14 @@ mysql脏页和干净页：
 内存里的数据写入磁盘的过程，术语就是 **flush**。  
 刷脏页可能导致MySQL的抖动。
 
+MySQL里面对表做flush操作的用法，一般有以下两个：
+```sql
+flush tables t with read lock;
+
+flush tables with read lock;
+```
+
+
 # 什么情况会引发数据库的flush过程呢？
 
 ## 场景一
