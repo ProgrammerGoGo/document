@@ -26,3 +26,18 @@
 如果某个表上的查询语句频繁，而且客户端有重试机制，也就是说超时后会再起一个新session再请求的话，这个库的线程很快就会爆满。
 
 你现在应该知道了，**事务中的MDL锁，在语句执行开始时申请，但是语句结束后并不会马上释放，而会等到整个事务提交后再释放。**
+
+
+> 在MySQL 5.7版本下复现这个场景。
+
+![image](https://github.com/ProgrammerGoGo/document/assets/98639494/60d665f6-5691-40fb-96d3-75166b990d26)
+
+session A 通过`lock table`命令持有表t的`MDL`写锁，而session B的查询需要获取`MDL`读锁。所以，session B进入等待状态。
+
+这类问题的处理方式，就是找到谁持有MDL写锁，然后把它kill掉。
+
+但是，由于在`show processlist`的结果里面，session A的Command列是“Sleep”，导致查找起来很不方便。不过有了performance_schema和sys系统库以后，就方便多了。（MySQL启动时需要设置performance_schema=on，相比于设置为off会有10%左右的性能损失)
+
+通过查询sys.schema_table_lock_waits这张表，我们就可以直接找出造成阻塞的process id，把这个连接用kill 命令断开即可。
+
+![image](https://github.com/ProgrammerGoGo/document/assets/98639494/b47d5e4d-5bd9-45ff-a95c-91b38c6b1bea)
