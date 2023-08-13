@@ -14,10 +14,12 @@ mysql脏页和干净页：
 
 MySQL里面对表做flush操作的用法，一般有以下两个：
 ```sql
+-- 这两个flush语句，如果指定表t的话，代表的是只关闭表t；如果没有指定具体的表名，则表示关闭MySQL里所有打开的表。
 flush tables t with read lock;
 
 flush tables with read lock;
 ```
+
 
 
 # 什么情况会引发数据库的flush过程呢？
