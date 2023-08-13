@@ -1,4 +1,5 @@
 
+> [20讲幻读是什么，幻读有什么问题](https://funnylog.gitee.io/mysql45/20%E8%AE%B2%E5%B9%BB%E8%AF%BB%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%8C%E5%B9%BB%E8%AF%BB%E6%9C%89%E4%BB%80%E4%B9%88%E9%97%AE%E9%A2%98.html)
 
 
 > 建表语句：
