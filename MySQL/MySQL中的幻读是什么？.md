@@ -54,7 +54,7 @@
 
 这里session B并不会被堵住。因为表t里并没有c=7这个记录，因此session A加的是间隙锁(5,10)。而session B也是在这个间隙加的间隙锁。它们有共同的目标，即：保护这个间隙，不允许插入值。但它们之间是不冲突的。
 
-> [加锁规则]()
+> [加锁规则](https://github.com/ProgrammerGoGo/document/blob/main/MySQL/MySQL%E7%9A%84%E5%8A%A0%E9%94%81%E8%A7%84%E5%88%99.md)
 
 间隙锁和行锁合称`next-key lock`，每个`next-key lock`是前开后闭区间。也就是说，我们的表t初始化以后，如果用`select * from t for update`要把整个表所有记录锁起来，就形成了7个`next-key lock`，分别是 (-∞,0]、(0,5]、(5,10]、(10,15]、(15,20]、(20, 25]、(25, +suprenum]。
 
