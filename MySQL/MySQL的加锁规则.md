@@ -86,6 +86,12 @@ session A用字段c来判断，加锁规则跟案例三唯一的不同是：在�
 
 ![image](https://github.com/ProgrammerGoGo/document/assets/98639494/77fc3808-eba4-4c2a-8954-00645556ef48)
 
+session A是一个范围查询，按照原则1的话，应该是索引id上只加(10,15]这个next-key lock，并且因为id是唯一键，所以循环判断到id=15这一行就应该停止了。
+
+但是实现上，InnoDB会往前扫描到第一个不满足条件的行为止，也就是id=20。而且由于这是个范围扫描，因此索引id上的(15,20]这个next-key lock也会被锁上。
+
+所以session B要更新id=20这一行，是会被锁住的。同样地，session C要插入id=16的一行，也会被锁住。
+
 # 案例六：非唯一索引上存在"等值"的例子
 
 表t插入一条新记录。
@@ -149,9 +155,15 @@ session A的delete语句加了 limit 2。因为表t里c=10的记录其实只有�
 
 你可能会问，session B的next-key lock不是还没申请成功吗？
 
-其实是这样的，session B的“加next-key lock(5,10] ”操作，实际上分成了两步，先是加(5,10)的间隙锁，加锁成功；然后加c=10的行锁，这时候才被锁住的。
+其实是这样的，session B的“加next-key lock(5,10] ”操作，实际上分成了两步，先是加(5,10)的间隙锁，加锁成功（间隙锁不是互斥的，所以session A锁住的间隙，session B仍然能再次上锁 [幻读与间隙锁](https://github.com/ProgrammerGoGo/document/blob/main/MySQL/MySQL%E4%B8%AD%E7%9A%84%E5%B9%BB%E8%AF%BB%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F.md)）；然后加c=10的行锁，这时候才被锁住的。
 
-也就是说，我们在分析加锁规则的时候可以用next-key lock来分析。但是要知道，具体执行的时候，是要分成间隙锁和行锁两段来执行的。
+也就是说，在分析加锁规则的时候可以用`next-key lock`来分析。但是要知道，具体执行的时候，是要分成间隙锁和行锁两段来执行的。
+
+# 案例九：锁分析
+
+为什么session B的insert操作，会被锁住呢？
+
+![image](https://github.com/ProgrammerGoGo/document/assets/98639494/144a969a-3bf9-4f71-9dca-43613751681d)
 
 
 
