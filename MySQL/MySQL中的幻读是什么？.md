@@ -62,14 +62,41 @@
 
 # 间隙锁带来的问题
 
+任意锁住一行，如果这一行不存在的话就插入，如果存在这一行就更新它的数据，代码如下：
 
+```sql
+begin;
+select * from t where id=N for update;
 
+/*如果行不存在*/
+insert into t values(N,N,N);
+/*如果行存在*/
+update t set d=N set id=N;
 
+commit;
+```
 
+这个逻辑一旦有并发，就会碰到死锁。
 
+复现场景如下：这里用两个session来模拟并发，并假设N=9。
 
+![image](https://github.com/ProgrammerGoGo/document/assets/98639494/7ab9f652-5574-4449-b530-dec0fd209d72)
 
+其实都不需要用到后面的update语句，就已经形成死锁了。按语句执行顺序来分析一下：
 
+1. session A 执行select ... for update语句，由于id=9这一行并不存在，因此会加上间隙锁(5,10);
+
+2. session B 执行select ... for update语句，同样会加上间隙锁(5,10)，间隙锁之间不会冲突，因此这个语句可以执行成功；
+
+3. session B 试图插入一行(9,9,9)，被session A的间隙锁挡住了，只好进入等待；
+
+4. session A试图插入一行(9,9,9)，被session B的间隙锁挡住了。
+
+至此，两个session进入互相等待状态，形成死锁。当然，InnoDB的死锁检测马上就发现了这对死锁关系，让session A的insert语句报错返回了。
+
+你现在知道了，**间隙锁的引入，可能会导致同样的语句锁住更大的范围，这其实是影响了并发度的**。
+
+> 间隙锁是在可重复读隔离级别下才会生效的。所以，把隔离级别设置为读提交，就没有间隙锁了。但同时，可能出现的数据和日志不一致问题，要解决这个问题，需要把binlog格式设置为row。这也是现在不少公司使用的配置组合。
 
 
 
