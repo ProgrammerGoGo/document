@@ -167,7 +167,7 @@ session A的delete语句加了 limit 2。因为表t里c=10的记录其实只有�
 
 session A的select语句加锁分析：
 
-1. 由于是order by c desc，第一个要定位的是索引c上“最右边的”c=20的行，所以会加上间隙锁(20,25)和next-key lock (15,20]。
+1. 由于是order by c desc，第一个要定位的是索引c上“最右边的”c=20的行（从左向右找，等值查询定位到25），所以会加上间隙锁(20,25)和next-key lock (15,20]。
 
 2. 在索引c上向左遍历，要扫描到c=10才停下来，所以next-key lock会加到(5,10]，这正是阻塞session B的insert语句的原因。
 
