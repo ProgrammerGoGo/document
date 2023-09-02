@@ -1,5 +1,5 @@
 
-
+> [JUC锁之AQS详解](https://github.com/ProgrammerGoGo/document/blob/main/Java%E5%9F%BA%E7%A1%80/JUC%E9%94%81%E4%B9%8BAQS%E8%AF%A6%E8%A7%A3.md)
 
 # ReentrantLock
 
