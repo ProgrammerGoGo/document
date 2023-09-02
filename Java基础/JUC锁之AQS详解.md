@@ -70,6 +70,7 @@ AbstractQueuedSynchronizer类底层的数据结构是使用`CLH(Craig,Landin,and
 
 ![image](https://github.com/ProgrammerGoGo/document/assets/98639494/976a770c-2c85-42f7-89f3-c3186c83f4e0)
 
+
 # AbstractQueuedSynchronizer源码分析
 
 ## AbstractQueuedSynchronizer 继承的父类
@@ -743,6 +744,9 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
 ```java
 public final void acquire(int arg) {
+    // 1、tryAcquire：尝试拿锁
+    // 2、addWaiter：没拿到锁，排队
+    // 1、acquireQueued：挂起线程 和 后续被唤醒继续锁资源的逻辑
     if (!tryAcquire(arg) && acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
         selfInterrupt();
 }
@@ -984,8 +988,7 @@ private void unparkSuccessor(Node node) {
 
 其中node为参数，在执行完cancelAcquire方法后的效果就是unpark了s结点所包含的t4线程。
 
-现在，再来看acquireQueued方法的整个的逻辑。逻辑如下:
-
+现在，再来看acquireQueued方法的整个的逻辑。逻辑如下:  
 * 判断当前结点的前驱是否为head并且是否成功获取(资源)。
 * 若步骤1均满足，则设置当前结点为head，然后返回。
 * 若步骤2不满足，则判断是否需要park当前线程，是否需要park当前线程的逻辑是判断结点的前驱结点的状态是否为SIGNAL，若是，则park当前结点，否则，不进行park操作。
@@ -1000,6 +1003,23 @@ private void unparkSuccessor(Node node) {
 
 
 
+
+<img width="1080" alt="截屏2023-09-02 下午4 52 08" src="https://github.com/ProgrammerGoGo/document/assets/98639494/56b85b15-a055-49f2-8f6c-581c6f5b7b4b">
+
+问什么分双向链表和单向链表？
+
+双向链表在 AbstractQueuedSynchronizer 类中  
+单向链表在 AbstractQueuedSynchronizer.ConditionObject 类中
+
+
+
+<img width="1249" alt="截屏2023-09-02 下午5 12 03" src="https://github.com/ProgrammerGoGo/document/assets/98639494/e86b2374-437b-4744-bcb8-f08b18a060ea">
+
+<img width="1286" alt="截屏2023-09-02 下午5 10 43" src="https://github.com/ProgrammerGoGo/document/assets/98639494/841ff633-b306-4f0d-a9ba-846a83169e51">
+
+head和tail都是共享变量，线程B的Node节点是私有变量。为了保证线程安全，在操作共享变量时需要加锁（这里操作tail时用cas）.
+
+如果先修改tail就会破坏双向链表，此时还没有建立双向链表关系就有线程用tail找尾节点，就找不到前面的节点了
 
 
 
