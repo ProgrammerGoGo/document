@@ -748,6 +748,248 @@ public final void acquire(int arg) {
 }
 ```
 
+acquire 方法执行流程如下：  
+* 首先调用tryAcquire方法，调用此方法的线程会试图在独占模式下获取对象状态。此方法应该查询是否允许它在独占模式下获取对象状态，如果允许，则获取它。在AbstractQueuedSynchronizer源码中默认会抛出一个异常，即需要子类去重写此方法完成自己的逻辑。
+* 若tryAcquire失败，则调用addWaiter方法，addWaiter方法完成的功能是将调用此方法的线程封装成为一个结点并放入Sync queue。
+* 调用acquireQueued方法，此方法完成的功能是Sync queue中的结点不断尝试获取资源，若成功，则返回true，否则，返回false。
+
+**addWaiter** 方法分析：
+
+```java
+// 添加等待者。返回值为当前线程封装成的node节点
+private Node addWaiter(Node mode) {
+    // 新生成一个结点，默认为独占模式
+    Node node = new Node(Thread.currentThread(), mode);
+    // Try the fast path of enq; backup to full enq on failure
+    // 保存尾结点
+    Node pred = tail;
+    if (pred != null) { // 尾结点不为空，即已经被初始化
+        // 将node结点的prev域连接到尾结点
+        node.prev = pred; 
+        if (compareAndSetTail(pred, node)) { // 比较pred是否为尾结点，是则将尾结点设置为node 
+            // 设置尾结点的next域为node
+            pred.next = node;
+            return node; // 返回新生成的结点
+        }
+    }
+    enq(node); // 尾结点为空(即还没有被初始化过)，或者是compareAndSetTail操作失败，则入队列
+    return node;
+}
+```
+
+addWaiter方法使用快速添加的方式往sync queue尾部添加结点，如果sync queue队列还没有初始化（即代码中判断尾节点为空），则会使用enq插入队列中，enq方法源码如下
+
+```java
+private Node enq(final Node node) {
+    for (;;) { // 无限循环，确保结点能够成功入队列
+        // 保存尾结点
+        Node t = tail;
+        if (t == null) { // 尾结点为空，即还没被初始化
+            if (compareAndSetHead(new Node())) // 头节点为空，并设置头节点为新生成的结点
+                tail = head; // 头节点与尾结点都指向同一个新生结点
+        } else { // 尾结点不为空，即已经被初始化过
+            // 将node结点的prev域连接到尾结点，此处逻辑和addWaiter方法中“将node结点的prev域连接到尾结点”逻辑相同
+            node.prev = t; 
+            if (compareAndSetTail(t, node)) { // 比较结点t是否为尾结点，若是则将尾结点设置为node
+                // 设置尾结点的next域为node
+                t.next = node; 
+                return t; // 返回尾结点
+            }
+        }
+    }
+}
+```
+
+enq方法会使用无限循环来确保节点的成功插入。
+
+**acquireQueue** 方法分析：
+
+```java
+// sync队列中的结点在独占且忽略中断的模式下获取(资源)
+final boolean acquireQueued(final Node node, int arg) {
+    // 标志
+    boolean failed = true;
+    try {
+        // 中断标志
+        boolean interrupted = false;
+        for (;;) { // 无限循环
+            // 获取node节点的前驱结点
+            final Node p = node.predecessor(); 
+            if (p == head && tryAcquire(arg)) { // 前驱为头节点并且成功获得锁
+                setHead(node); // 设置头节点
+                p.next = null; // help GC
+                failed = false; // 设置标志
+                return interrupted; 
+            }
+            if (shouldParkAfterFailedAcquire(p, node) &&
+                parkAndCheckInterrupt())
+                interrupted = true;
+        }
+    } finally {
+        if (failed)
+            cancelAcquire(node);
+    }
+}
+```
+
+首先获取当前节点的前驱节点，如果前驱节点是头节点并且能够获取(资源)，代表该当前节点能够占有锁，设置头节点为当前节点，返回。否则，调用shouldParkAfterFailedAcquire和parkAndCheckInterrupt方法，首先，我们看shouldParkAfterFailedAcquire方法，代码如下
+
+```java
+// 当获取(资源)失败后，检查并且更新结点状态
+private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
+    // 获取前驱结点的状态
+    int ws = pred.waitStatus;
+    if (ws == Node.SIGNAL) // 状态为SIGNAL，为-1
+        /*
+            * This node has already set status asking a release
+            * to signal it, so it can safely park.
+            */
+        // 可以进行park操作
+        return true; 
+    if (ws > 0) { // 表示状态为CANCELLED，为1
+        /*
+            * Predecessor was cancelled. Skip over predecessors and
+            * indicate retry.
+            */
+        do {
+            node.prev = pred = pred.prev;
+        } while (pred.waitStatus > 0); // 找到pred结点前面最近的一个状态不为CANCELLED的结点
+        // 赋值pred结点的next域
+        pred.next = node; 
+    } else { // 为PROPAGATE -3 或者是0 表示无状态,(为CONDITION -2时，表示此节点在condition queue中) 
+        /*
+            * waitStatus must be 0 or PROPAGATE.  Indicate that we
+            * need a signal, but don't park yet.  Caller will need to
+            * retry to make sure it cannot acquire before parking.
+            */
+        // 比较并设置前驱结点的状态为SIGNAL
+        compareAndSetWaitStatus(pred, ws, Node.SIGNAL); 
+    }
+    // 不能进行park操作
+    return false;
+}
+```
+
+只有当该节点的前驱结点的状态为SIGNAL时，才可以对该结点所封装的线程进行park操作。否则，将不能进行park操作。再看parkAndCheckInterrupt方法，源码如下
+
+```java
+// 进行park操作并且返回该线程是否被中断
+private final boolean parkAndCheckInterrupt() {
+    // 在许可可用之前禁用当前线程，并且设置了blocker
+    LockSupport.park(this);
+    return Thread.interrupted(); // 当前线程是否已被中断，并清除中断标记位
+}
+```
+
+parkAndCheckInterrupt方法里的逻辑是首先执行park操作，即禁用当前线程，然后返回该线程是否已经被中断。再看final块中的cancelAcquire方法，其源码如下
+
+```java
+// 取消继续获取(资源)
+private void cancelAcquire(Node node) {
+    // Ignore if node doesn't exist
+    // node为空，返回
+    if (node == null)
+        return;
+    // 设置node结点的thread为空
+    node.thread = null;
+
+    // Skip cancelled predecessors
+    // 保存node的前驱结点
+    Node pred = node.prev;
+    while (pred.waitStatus > 0) // 找到node前驱结点中第一个状态小于0的结点，即不为CANCELLED状态的结点
+        node.prev = pred = pred.prev;
+
+    // predNext is the apparent node to unsplice. CASes below will
+    // fail if not, in which case, we lost race vs another cancel
+    // or signal, so no further action is necessary.
+    // 获取pred结点的下一个结点
+    Node predNext = pred.next;
+
+    // Can use unconditional write instead of CAS here.
+    // After this atomic step, other Nodes can skip past us.
+    // Before, we are free of interference from other threads.
+    // 设置node结点的状态为CANCELLED
+    node.waitStatus = Node.CANCELLED;
+
+    // If we are the tail, remove ourselves.
+    if (node == tail && compareAndSetTail(node, pred)) { // node结点为尾结点，则设置尾结点为pred结点
+        // 比较并设置pred结点的next节点为null
+        compareAndSetNext(pred, predNext, null); 
+    } else { // node结点不为尾结点，或者比较设置不成功
+        // If successor needs signal, try to set pred's next-link
+        // so it will get one. Otherwise wake it up to propagate.
+        int ws;
+        if (pred != head &&
+            ((ws = pred.waitStatus) == Node.SIGNAL ||
+                (ws <= 0 && compareAndSetWaitStatus(pred, ws, Node.SIGNAL))) &&
+            pred.thread != null) { // (pred结点不为头节点，并且pred结点的状态为SIGNAL)或者 
+                                // pred结点状态小于等于0，并且比较并设置等待状态为SIGNAL成功，并且pred结点所封装的线程不为空
+            // 保存结点的后继
+            Node next = node.next;
+            if (next != null && next.waitStatus <= 0) // 后继不为空并且后继的状态小于等于0
+                compareAndSetNext(pred, predNext, next); // 比较并设置pred.next = next;
+        } else {
+            unparkSuccessor(node); // 释放node的前一个结点
+        }
+
+        node.next = node; // help GC
+    }
+}
+```
+
+该方法完成的功能就是取消当前线程对资源的获取，即设置该结点的状态为CANCELLED，接着我们再看unparkSuccessor方法，源码如下
+
+```java
+// 释放后继结点
+private void unparkSuccessor(Node node) {
+    /*
+        * If status is negative (i.e., possibly needing signal) try
+        * to clear in anticipation of signalling.  It is OK if this
+        * fails or if status is changed by waiting thread.
+        */
+    // 获取node结点的等待状态
+    int ws = node.waitStatus;
+    if (ws < 0) // 状态值小于0，为SIGNAL -1 或 CONDITION -2 或 PROPAGATE -3
+        // 比较并且设置结点等待状态，设置为0
+        compareAndSetWaitStatus(node, ws, 0);
+
+    /*
+        * Thread to unpark is held in successor, which is normally
+        * just the next node.  But if cancelled or apparently null,
+        * traverse backwards from tail to find the actual
+        * non-cancelled successor.
+        */
+    // 获取node节点的下一个结点
+    Node s = node.next;
+    if (s == null || s.waitStatus > 0) { // 下一个结点为空或者下一个节点的等待状态大于0，即为CANCELLED
+        // s赋值为空
+        s = null; 
+        // 从尾结点开始从后往前开始遍历
+        for (Node t = tail; t != null && t != node; t = t.prev)
+            if (t.waitStatus <= 0) // 找到等待状态小于等于0的结点，找到最前的状态小于等于0的结点
+                // 保存结点
+                s = t;
+    }
+    if (s != null) // 该结点不为为空，释放许可
+        LockSupport.unpark(s.thread);
+}
+
+```
+
+该方法的作用就是为了释放node节点的后继结点。
+
+对于cancelAcquire与unparkSuccessor方法，如下示意图可以清晰的表示:
+
+![image](https://github.com/ProgrammerGoGo/document/assets/98639494/8bb998cd-d5d8-42ed-9434-932b862a5123)
+
+其中node为参数，在执行完cancelAcquire方法后的效果就是unpark了s结点所包含的t4线程。
+
+现在，再来看acquireQueued方法的整个的逻辑。逻辑如下:
+
+* 判断当前结点的前驱是否为head并且是否成功获取(资源)。
+* 若步骤1均满足，则设置当前结点为head，然后返回。
+* 若步骤2不满足，则判断是否需要park当前线程，是否需要park当前线程的逻辑是判断结点的前驱结点的状态是否为SIGNAL，若是，则park当前结点，否则，不进行park操作。
+* 若park了当前线程，之后某个线程对本线程unpark后，并且本线程也获得机会运行。那么，将会继续进行步骤一的判断。
 
 
 
@@ -780,9 +1022,7 @@ public final void acquire(int arg) {
 
 
 
-
-
-
+问题1：addWaiter方法中为什么要通过cas判断pred是否为尾节点？什么时候pred不是尾节点？
 
 
 
