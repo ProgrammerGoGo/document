@@ -746,7 +746,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 public final void acquire(int arg) {
     // 1、tryAcquire：尝试拿锁
     // 2、addWaiter：没拿到锁，排队
-    // 1、acquireQueued：挂起线程 和 后续被唤醒继续锁资源的逻辑
+    // 3、acquireQueued：挂起线程 和 后续被唤醒继续锁资源的逻辑
     if (!tryAcquire(arg) && acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
         selfInterrupt();
 }
@@ -762,15 +762,15 @@ acquire 方法执行流程如下：
 ```java
 // 添加等待者。返回值为当前线程封装成的node节点
 private Node addWaiter(Node mode) {
-    // 新生成一个结点，默认为独占模式
+    // 将当前线程封装为一个 Node 节点，默认为独占模式
     Node node = new Node(Thread.currentThread(), mode);
     // Try the fast path of enq; backup to full enq on failure
     // 保存尾结点
     Node pred = tail;
-    if (pred != null) { // 尾结点不为空，即已经被初始化
+    if (pred != null) { // 尾结点不为空，即双向链表已经被初始化
         // 将node结点的prev域连接到尾结点
         node.prev = pred; 
-        if (compareAndSetTail(pred, node)) { // 比较pred是否为尾结点，是则将尾结点设置为node 
+        if (compareAndSetTail(pred, node)) { // cas操作将尾节点从pred换成node。即判断pred是否为尾结点，是则将尾结点设置为node 
             // 设置尾结点的next域为node
             pred.next = node;
             return node; // 返回新生成的结点
@@ -816,15 +816,16 @@ final boolean acquireQueued(final Node node, int arg) {
     try {
         // 中断标志
         boolean interrupted = false;
-        for (;;) { // 无限循环
+        for (;;) { // 无限循环，确保拿到锁资源，拿不到就死等
             // 获取node节点的前驱结点
             final Node p = node.predecessor(); 
-            if (p == head && tryAcquire(arg)) { // 前驱为头节点并且成功获得锁
-                setHead(node); // 设置头节点
-                p.next = null; // help GC
-                failed = false; // 设置标志
+            if (p == head && tryAcquire(arg)) { // 前驱节点为头节说明当前节点排在双向队列的第一位，尝试获取锁并且成功获取了。（head可以理解为当前持有锁的线程）
+                setHead(node); // 设置当前节点为头节点（head可以理解为当前持有锁的线程）
+                p.next = null; // 将之前的head节点的next指向空
+                failed = false; // 设置标志，拿锁成功
                 return interrupted; 
             }
+            // 当前线程没有获取到锁，
             if (shouldParkAfterFailedAcquire(p, node) &&
                 parkAndCheckInterrupt())
                 interrupted = true;
@@ -838,35 +839,30 @@ final boolean acquireQueued(final Node node, int arg) {
 
 首先获取当前节点的前驱节点，如果前驱节点是头节点并且能够获取(资源)，代表该当前节点能够占有锁，设置头节点为当前节点，返回。否则，调用shouldParkAfterFailedAcquire和parkAndCheckInterrupt方法，首先，我们看shouldParkAfterFailedAcquire方法，代码如下
 
+执行 `setHead()方法`：
+
+<img width="956" alt="截屏2023-09-03 下午2 28 35" src="https://github.com/ProgrammerGoGo/document/assets/98639494/e5d937d1-f40d-408e-805e-af3d041fc18e">
+
 ```java
 // 当获取(资源)失败后，检查并且更新结点状态
 private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
     // 获取前驱结点的状态
+    //        ws=0，默认值
+    //        ws=1，代表节点取消了
+    //        ws=-1，当前节点的next节点线程被挂起了
     int ws = pred.waitStatus;
     if (ws == Node.SIGNAL) // 状态为SIGNAL，为-1
-        /*
-            * This node has already set status asking a release
-            * to signal it, so it can safely park.
-            */
         // 可以进行park操作
+        // 注意：当前线程要想挂起，必须现将当前节点的前驱节点的ws置为-1，因为后续是否需要唤起当前挂起的线程是由前驱节点的ws状态来决定的
         return true; 
-    if (ws > 0) { // 表示状态为CANCELLED，为1
-        /*
-            * Predecessor was cancelled. Skip over predecessors and
-            * indicate retry.
-            */
+    if (ws > 0) { // 表示状态为节点取消，即CANCELLED，为1
         do {
             node.prev = pred = pred.prev;
-        } while (pred.waitStatus > 0); // 找到pred结点前面最近的一个状态不为CANCELLED的结点
+        } while (pred.waitStatus > 0); // 找到pred结点前面最近的一个状态不为CANCELLED的结点，并修改指针。实际上就是把ws为1的节点从双向链表中移除
         // 赋值pred结点的next域
         pred.next = node; 
     } else { // 为PROPAGATE -3 或者是0 表示无状态,(为CONDITION -2时，表示此节点在condition queue中) 
-        /*
-            * waitStatus must be 0 or PROPAGATE.  Indicate that we
-            * need a signal, but don't park yet.  Caller will need to
-            * retry to make sure it cannot acquire before parking.
-            */
-        // 比较并设置前驱结点的状态为SIGNAL
+        // 比较并设置前驱结点的状态为SIGNAL，将前驱节点的ws改为Node.SIGNAL（为后面挂起当前线程做准备），
         compareAndSetWaitStatus(pred, ws, Node.SIGNAL); 
     }
     // 不能进行park操作
@@ -877,7 +873,7 @@ private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
 只有当该节点的前驱结点的状态为SIGNAL时，才可以对该结点所封装的线程进行park操作。否则，将不能进行park操作。再看parkAndCheckInterrupt方法，源码如下
 
 ```java
-// 进行park操作并且返回该线程是否被中断
+// 挂起当前线程，等待被唤醒在获取锁资源。进行park操作并且返回该线程是否被中断
 private final boolean parkAndCheckInterrupt() {
     // 在许可可用之前禁用当前线程，并且设置了blocker
     LockSupport.park(this);
