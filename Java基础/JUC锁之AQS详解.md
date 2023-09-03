@@ -942,29 +942,19 @@ private void cancelAcquire(Node node) {
 ```java
 // 释放后继结点
 private void unparkSuccessor(Node node) {
-    /*
-        * If status is negative (i.e., possibly needing signal) try
-        * to clear in anticipation of signalling.  It is OK if this
-        * fails or if status is changed by waiting thread.
-        */
+
     // 获取node结点的等待状态
     int ws = node.waitStatus;
     if (ws < 0) // 状态值小于0，为SIGNAL -1 或 CONDITION -2 或 PROPAGATE -3
         // 比较并且设置结点等待状态，设置为0
         compareAndSetWaitStatus(node, ws, 0);
 
-    /*
-        * Thread to unpark is held in successor, which is normally
-        * just the next node.  But if cancelled or apparently null,
-        * traverse backwards from tail to find the actual
-        * non-cancelled successor.
-        */
     // 获取node节点的下一个结点
     Node s = node.next;
-    if (s == null || s.waitStatus > 0) { // 下一个结点为空或者下一个节点的等待状态大于0，即为CANCELLED
+    if (s == null || s.waitStatus > 0) { // 下一个结点为空或者下一个节点的等待状态大于0，即为取消状态CANCELLED
         // s赋值为空
         s = null; 
-        // 从尾结点开始从后往前开始遍历
+        // 从 尾结点 开始从后往前开始遍历
         for (Node t = tail; t != null && t != node; t = t.prev)
             if (t.waitStatus <= 0) // 找到等待状态小于等于0的结点，找到最前的状态小于等于0的结点
                 // 保存结点
@@ -984,12 +974,34 @@ private void unparkSuccessor(Node node) {
 
 其中node为参数，在执行完cancelAcquire方法后的效果就是unpark了s结点所包含的t4线程。
 
+注意这里有一个问题，为什么unparkSuccessor()方法要从尾节点向前找到最前面的ws小于0的节点，为什么不从前往后找？
+
+因为前驱指针永远都是最新的，如果中间某个节点取消了（也就是ws为1），他的next指针会指向null，这样会导致无法遍历链表中所有的节点。
+
 现在，再来看acquireQueued方法的整个的逻辑。逻辑如下:  
 * 判断当前结点的前驱是否为head并且是否成功获取(资源)。
 * 若步骤1均满足，则设置当前结点为head，然后返回。
 * 若步骤2不满足，则判断是否需要park当前线程，是否需要park当前线程的逻辑是判断结点的前驱结点的状态是否为SIGNAL，若是，则park当前结点，否则，不进行park操作。
 * 若park了当前线程，之后某个线程对本线程unpark后，并且本线程也获得机会运行。那么，将会继续进行步骤一的判断。
 
+### AbstractQueuedSynchronizer类的核心方法 - release方法
+
+```java
+public final boolean release(int arg) {
+    if (tryRelease(arg)) { // 释放成功
+        // 保存头节点
+        Node h = head; 
+        if (h != null && h.waitStatus != 0) // 头节点不为空并且头节点状态不为0
+            unparkSuccessor(h); //释放头节点的后继结点
+        return true;
+    }
+    return false;
+}
+// AbstractQueuedSynchronizer中的tryRelease()方法直接抛出异常，需要实现类重写实现
+protected boolean tryRelease(int arg) {
+        throw new UnsupportedOperationException();
+}
+```
 
 
 
@@ -997,8 +1009,7 @@ private void unparkSuccessor(Node node) {
 
 
 
-
-
+# 其他
 
 <img width="1080" alt="截屏2023-09-02 下午4 52 08" src="https://github.com/ProgrammerGoGo/document/assets/98639494/56b85b15-a055-49f2-8f6c-581c6f5b7b4b">
 
@@ -1040,6 +1051,7 @@ head和tail都是共享变量，线程B的Node节点是私有变量。为了保�
 
 问题1：addWaiter方法中为什么要通过cas判断pred是否为尾节点？什么时候pred不是尾节点？
 
+多线程并发执行addWaiter()方法时，有可能导致之前获取到的尾节点现在已经不是尾节点了。
 
 
 
