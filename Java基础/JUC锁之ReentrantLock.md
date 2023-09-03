@@ -141,7 +141,8 @@ protected final boolean tryAcquire(int acquires) {
 
 公平锁 **FairSync** 和非公平锁 **NonfairSync** 的`tryacquire()`方法返回false，即没有获取到锁时，就需要执行后续的`addWaiter()`方法了。
 
-`addWaiter()`方法的实现在 `AbstractQueuedSynchronizer` 类中。
+`addWaiter()`方法的实现在 `AbstractQueuedSynchronizer` 类中。[AbstractQueuedSynchronizer类中的addWaiter方法分析](https://github.com/ProgrammerGoGo/document/blob/main/Java%E5%9F%BA%E7%A1%80/JUC%E9%94%81%E4%B9%8BAQS%E8%AF%A6%E8%A7%A3.md)
+
 
 
 
