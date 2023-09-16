@@ -5,10 +5,11 @@
 # 查看行锁
 
 ```sql
+-- 查看行锁命令
 select * from performance_schema.data_locks;
 ```
 
-<img width="1433" alt="屏幕快照 2023-09-16 下午4 33 45" src="https://github.com/ProgrammerGoGo/document/assets/98639494/04ed41f7-2183-43cb-bc13-6e3229d9e428">
+![image](https://github.com/ProgrammerGoGo/document/blob/main/MySQL/image/innodb%E6%9F%A5%E7%9C%8B%E8%A1%8C%E9%94%81.png)
 
 # 表结构
 
