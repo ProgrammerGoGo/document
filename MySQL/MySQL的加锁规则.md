@@ -2,9 +2,18 @@
 > [21讲为什么我只改一行的语句，锁这么多](https://funnylog.gitee.io/mysql45/21%E8%AE%B2%E4%B8%BA%E4%BB%80%E4%B9%88%E6%88%91%E5%8F%AA%E6%94%B9%E4%B8%80%E8%A1%8C%E7%9A%84%E8%AF%AD%E5%8F%A5%EF%BC%8C%E9%94%81%E8%BF%99%E4%B9%88%E5%A4%9A.html)
 > [用动态的观点看加锁](https://funnylog.gitee.io/mysql45/30%E8%AE%B2%E7%AD%94%E7%96%91%E6%96%87%E7%AB%A0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9A%E7%94%A8%E5%8A%A8%E6%80%81%E7%9A%84%E8%A7%82%E7%82%B9%E7%9C%8B%E5%8A%A0%E9%94%81.html)
 
+# 查看行锁
+
+```sql
+select * from performance_schema.data_locks;
+```
+
+<img width="1433" alt="屏幕快照 2023-09-16 下午4 33 45" src="https://github.com/ProgrammerGoGo/document/assets/98639494/04ed41f7-2183-43cb-bc13-6e3229d9e428">
+
 # 表结构
 
 ```sql
+drop table if exists t;
 CREATE TABLE `t` (
   `id` int(11) NOT NULL,
   `c` int(11) DEFAULT NULL,
