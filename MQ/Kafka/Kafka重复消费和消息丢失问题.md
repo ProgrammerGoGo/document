@@ -16,6 +16,7 @@
 * 提高消费者的处理速度。例如：对消息处理中比较耗时的步骤可通过异步的方式进行处理、利用多线程处理等。在缩短单条消息消费的同时，根据实际场景可将 `max.poll.interval.ms` 值设置大一点，避免不必要的Rebalance。可根据实际消息速率适当调小 `max.poll.records` 的值。
 * 引入消息去重机制。例如：生成消息时，在消息中加入唯一标识符如消息id等。在消费端，可以保存最近的 `max.poll.records` 条消息id到redis或mysql表中，这样在消费消息时先通过查询去重后，再进行消息的处理。
 * 保证消费者逻辑幂等。[一文理解如何实现接口的幂等性](https://mp.weixin.qq.com/s?__biz=MzUyNzgyNzAwNg%3D%3D&idx=1&mid=2247484349&scene=21&sn=b54c0819bc100db816cda52d11476401#wechat_redirect)
+* 手动提交offset。
 
 
 # 消息丢失
