@@ -8,7 +8,7 @@
 消息重复消费的根本原因都在于：**已经消费了数据，但是offset没有成功提交。**
 
 * 原因1：消费者宕机、重启或者被强行kill进程，导致消费者消费的offset没有提交。
-* 原因2：设置 `enable.auto.commit` 为 true (即消费者使用自动提交offset)，如果在关闭消费者进程之前，取消了消费者的订阅，则有可能部分offset没提交，下次重启会重复消费。
+* 原因2：设置 `enable.auto.commit` 为 true (即消费者使用自动提交offset，自动提交和手动提交详见[Kafka中位移提交那些事儿](https://github.com/ProgrammerGoGo/document/blob/main/MQ/Kafka/Kafka%E4%B8%AD%E4%BD%8D%E7%A7%BB%E6%8F%90%E4%BA%A4%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF.md))，如果在关闭消费者进程之前，取消了消费者的订阅，则有可能部分offset没提交，下次重启会重复消费。
 * 原因3（重复消费最常见的原因）：消费后的数据，当offset还没有提交时，Partition就断开连接。比如，通常会遇到消费的数据，处理很耗时，导致超过了Kafka的 `session timeout.ms` 时间（0.10.x版本默认是30秒），那么就会触发reblance重平衡，此时可能存在消费者offset没提交，会导致重平衡后重复消费。
 
 ## 解决方案
