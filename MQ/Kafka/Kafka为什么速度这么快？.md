@@ -1,6 +1,6 @@
 
-> [Kafka 为什么那么快的 6 个原因！](https://blog.csdn.net/zl1zl2zl3/article/details/107963699)
-> [Kafka为什么速度这么快？.md](https://strikefreedom.top/archives/why-kafka-is-so-fast)
+> [Kafka 为什么那么快的 6 个原因！](https://blog.csdn.net/zl1zl2zl3/article/details/107963699)  
+> [Kafka为什么速度这么快？](https://strikefreedom.top/archives/why-kafka-is-so-fast)
 
 一、顺序读写
 
