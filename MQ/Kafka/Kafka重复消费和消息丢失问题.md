@@ -98,6 +98,7 @@ Consumer消费消息有下面几个步骤：
 Consumer自动提交的机制是根据一定的时间间隔，将收到的消息进行commit。commit过程和消费消息的过程是异步的。也就是说，可能存在消费过程未成功（比如抛出异常），commit消息已经提交了。此时消息就丢失了。
 
 
+![image](https://github.com/ProgrammerGoGo/document/assets/98639494/22720f6a-1646-43a5-8e5a-1108b4aee0e2)
 
 
 
