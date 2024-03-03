@@ -552,6 +552,31 @@ public static void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFacto
 }
 ```
 
+循环遍历  BeanFactoryPostProcessor 中的 postProcessBeanFactory 方法
+
+```java
+private static void invokeBeanFactoryPostProcessors(
+        Collection<? extends BeanFactoryPostProcessor> postProcessors, ConfigurableListableBeanFactory beanFactory) {
+
+    for (BeanFactoryPostProcessor postProcessor : postProcessors) {
+        postProcessor.postProcessBeanFactory(beanFactory);
+    }
+}
+```
+
+
+# 注册BeanPostProcessor
+
+在上文中提到了BeanFactoryPostProcessor的调用，接下来我们就探索下BeanPostProcessor。但这里并不是调用，而是注册，真正的调用其实是在bean的实例化阶段进行的，这是一个很重要的步骤，也是很多功能BeanFactory不知道的重要原因。spring中大部分功能都是通过后处理器的方式进行扩展的，这是spring框架的一个特写，但是在BeanFactory中其实并没有实现后处理器的自动注册，所以在调用的时候如果没有进行手动注册其实是不能使用的。但是ApplicationContext中却添加了自动注册功能，如自定义一个后处理器：
+
+```java
+public class MyInstantiationAwareBeanPostProcessor implements InstantiationAwareBeanPostProcessor {
+    public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) throws BeansException {
+        System.out.println("befor");
+        return null;
+    }
+}
+```
 
 
 
