@@ -61,6 +61,7 @@ public void refresh() throws BeansException, IllegalStateException {
 ```
 
 分析下代码的步骤：
+
 （1）初始化前的准备工作，例如对系统属性或者环境变量进行准备及验证。  
 在某种情况下项目的使用需要读取某些系统变量，而这个变量的设置很可能会影响着系统的正确性，那么ClassPathXmlApplicationContext为我们提供的这个准备函数就显得非常必要，他可以在spring启动的时候提前对必须的环境变量进行存在性验证。
 
