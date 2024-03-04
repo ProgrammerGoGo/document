@@ -578,6 +578,430 @@ public class MyInstantiationAwareBeanPostProcessor implements InstantiationAware
 }
 ```
 
+然后在配置文件中添加bean的配置：
+
+```xml
+<bean class="com.yhl.myspring.demo.applicationcontext.MyInstantiationAwareBeanPostProcessor"/>
+```
+
+这样的话再使用BeanFactory的方式进行加载的bean在加载时不会有任何改变的，而在使用ApplicationContext方式获取的bean时就会打印出“before”，而这个特性就是在registryBeanPostProcessor方法中完成的。
+我们继续深入分析registryBeanPostProcessors的方法实现：
+
+```java
+protected void registerBeanPostProcessors(ConfigurableListableBeanFactory beanFactory) {
+    PostProcessorRegistrationDelegate.registerBeanPostProcessors(beanFactory, this);
+}
+public static void registerBeanPostProcessors(
+        ConfigurableListableBeanFactory beanFactory, AbstractApplicationContext applicationContext) {
+
+    // 我们可以看到先从容器中获取所有类型为 BeanPostProcessor.class 的Bean的name数组
+    String[] postProcessorNames = beanFactory.getBeanNamesForType(BeanPostProcessor.class, true, false);
+
+    /* 
+     * BeanPostProcessorChecker是一个普通的信息打印，可能会有些情况当spring的配置中的后
+     * 处理器还没有被注册就已经开了bean的初始化，这时就会打印出BeanPostProcessorChecker中
+     * 设定的信息
+     */
+    int beanProcessorTargetCount = beanFactory.getBeanPostProcessorCount() + 1 + postProcessorNames.length;
+    beanFactory.addBeanPostProcessor(new BeanPostProcessorChecker(beanFactory, beanProcessorTargetCount));
+
+    //使用PriorityOrdered来保证顺序
+    List<BeanPostProcessor> priorityOrderedPostProcessors = new ArrayList<>();
+    List<BeanPostProcessor> internalPostProcessors = new ArrayList<>();
+    //使用Ordered来保证顺序
+    List<String> orderedPostProcessorNames = new ArrayList<>();
+    //无序BeanPostProcessor
+    List<String> nonOrderedPostProcessorNames = new ArrayList<>();
+    for (String ppName : postProcessorNames) {
+        if (beanFactory.isTypeMatch(ppName, PriorityOrdered.class)) {
+            // 获取Bean的实例
+            BeanPostProcessor pp = beanFactory.getBean(ppName, BeanPostProcessor.class);
+            priorityOrderedPostProcessors.add(pp);
+            if (pp instanceof MergedBeanDefinitionPostProcessor) {
+                internalPostProcessors.add(pp);
+            }
+        }
+        else if (beanFactory.isTypeMatch(ppName, Ordered.class)) {
+            orderedPostProcessorNames.add(ppName);
+        }
+        else {
+            nonOrderedPostProcessorNames.add(ppName);
+        }
+    }
+
+    //第一步，注册所有实现了PriorityOrdered的BeanPostProcessor
+    sortPostProcessors(priorityOrderedPostProcessors, beanFactory);
+    // 将获取到的BeanPostProcessor实例添加到容器的属性中
+    registerBeanPostProcessors(beanFactory, priorityOrderedPostProcessors);
+
+    //注册实现了Ordered的BeanPostProcessor
+    List<BeanPostProcessor> orderedPostProcessors = new ArrayList<>();
+    for (String ppName : orderedPostProcessorNames) {
+        // 获取Bean的实例
+        BeanPostProcessor pp = beanFactory.getBean(ppName, BeanPostProcessor.class);
+        orderedPostProcessors.add(pp);
+        if (pp instanceof MergedBeanDefinitionPostProcessor) {
+            internalPostProcessors.add(pp);
+        }
+    }
+    sortPostProcessors(orderedPostProcessors, beanFactory);
+    // 将获取到的BeanPostProcessor实例添加到容器的属性中
+    registerBeanPostProcessors(beanFactory, orderedPostProcessors);
+
+    //注册所有的无序的BeanPostProcessor
+    List<BeanPostProcessor> nonOrderedPostProcessors = new ArrayList<>();
+    for (String ppName : nonOrderedPostProcessorNames) {
+        // 获取Bean的实例
+        BeanPostProcessor pp = beanFactory.getBean(ppName, BeanPostProcessor.class);
+        nonOrderedPostProcessors.add(pp);
+        if (pp instanceof MergedBeanDefinitionPostProcessor) {
+            internalPostProcessors.add(pp);
+        }
+    }
+    // 将获取到的BeanPostProcessor实例添加到容器的属性中
+    registerBeanPostProcessors(beanFactory, nonOrderedPostProcessors);
+
+    //注册所有的内部BeanFactoryProcessor
+    sortPostProcessors(internalPostProcessors, beanFactory);
+    // 将获取到的BeanPostProcessor实例添加到容器的属性中
+    registerBeanPostProcessors(beanFactory, internalPostProcessors);
+
+    // Re-register post-processor for detecting inner beans as ApplicationListeners,
+    //添加ApplicationListener探测器
+    beanFactory.addBeanPostProcessor(new ApplicationListenerDetector(applicationContext));
+}
+```
+
+我们可以看到先从容器中获取所有类型为 BeanPostProcessor.class 的Bean的name数组，然后通过 BeanPostProcessor pp = beanFactory.getBean(ppName, BeanPostProcessor.class); 获取Bean的实例，最后通过 registerBeanPostProcessors(beanFactory, orderedPostProcessors);将获取到的BeanPostProcessor实例添加到容器的属性中，如下
+
+```java
+private static void registerBeanPostProcessors(
+        ConfigurableListableBeanFactory beanFactory, List<BeanPostProcessor> postProcessors) {
+
+    for (BeanPostProcessor postProcessor : postProcessors) {
+        beanFactory.addBeanPostProcessor(postProcessor);
+    }
+}
+
+@Override
+public void addBeanPostProcessor(BeanPostProcessor beanPostProcessor) {
+    Assert.notNull(beanPostProcessor, "BeanPostProcessor must not be null");
+    // Remove from old position, if any
+    this.beanPostProcessors.remove(beanPostProcessor);
+    // Track whether it is instantiation/destruction aware
+    if (beanPostProcessor instanceof InstantiationAwareBeanPostProcessor) {
+        this.hasInstantiationAwareBeanPostProcessors = true;
+    }
+    if (beanPostProcessor instanceof DestructionAwareBeanPostProcessor) {
+        this.hasDestructionAwareBeanPostProcessors = true;
+    }
+    // Add to end of list
+    this.beanPostProcessors.add(beanPostProcessor);
+}
+```
+
+可以看到将 beanPostProcessor 实例添加到容器的 beanPostProcessors 属性中
+
+# 初始事件广播器
+
+初始化ApplicationEventMulticaster是在方法initApplicationEventMulticaster()中实现的，进入到方法体，如下：
+
+```java
+protected void initApplicationEventMulticaster() {
+    ConfigurableListableBeanFactory beanFactory = getBeanFactory();
+    // 1、默认使用内置的事件广播器,如果有的话.
+    // 我们可以在配置文件中配置Spring事件广播器或者自定义事件广播器
+    // 例如: <bean id="applicationEventMulticaster" class="org.springframework.context.event.SimpleApplicationEventMulticaster"></bean>
+    if (beanFactory.containsLocalBean(APPLICATION_EVENT_MULTICASTER_BEAN_NAME)) {
+        this.applicationEventMulticaster = beanFactory.getBean(APPLICATION_EVENT_MULTICASTER_BEAN_NAME, ApplicationEventMulticaster.class);
+    }
+    // 2、否则,新建一个事件广播器,SimpleApplicationEventMulticaster是spring的默认事件广播器
+    else {
+        this.applicationEventMulticaster = new SimpleApplicationEventMulticaster(beanFactory);
+        beanFactory.registerSingleton(APPLICATION_EVENT_MULTICASTER_BEAN_NAME, this.applicationEventMulticaster);
+    }
+}
+```
+
+通过源码可以看到其实现逻辑与initMessageSource基本相同，其步骤如下：  
+（1）查找是否有name为applicationEventMulticaster的bean，如果有放到容器里，如果没有，初始化一个系统默认的SimpleApplicationEventMulticaster放入容器
+
+（2）查找手动设置的applicationListeners，添加到applicationEventMulticaster里
+
+（3）查找定义的类型为ApplicationListener的bean，设置到applicationEventMulticaster
+
+（4）初始化完成、对earlyApplicationEvents里的事件进行通知（此容器仅仅是广播器未建立的时候保存通知信息，一旦容器建立完成，以后均直接通知）
+
+（5）在系统操作时候，遇到的各种bean的通知事件进行通知
+
+可以看到的是applicationEventMulticaster是一个标准的观察者模式，对于他内部的监听者applicationListeners，每次事件到来都会一一获取通知。
+
+# 注册监听器
+
+```java
+protected void registerListeners() {
+    // Register statically specified listeners first.
+    // 首先,注册指定的静态事件监听器,在spring boot中有应用
+    for (ApplicationListener<?> listener : getApplicationListeners()) {
+        getApplicationEventMulticaster().addApplicationListener(listener);
+    }
+
+    // Do not initialize FactoryBeans here: We need to leave all regular beans
+    // uninitialized to let post-processors apply to them!
+    // 其次,注册普通的事件监听器
+    String[] listenerBeanNames = getBeanNamesForType(ApplicationListener.class, true, false);
+    for (String listenerBeanName : listenerBeanNames) {
+        getApplicationEventMulticaster().addApplicationListenerBean(listenerBeanName);
+    }
+
+    // Publish early application events now that we finally have a multicaster...
+    // 如果有早期事件的话,在这里进行事件广播
+    // 因为前期SimpleApplicationEventMulticaster尚未注册，无法发布事件，
+    // 因此早期的事件会先存放在earlyApplicationEvents集合中，这里把它们取出来进行发布
+    // 所以早期事件的发布时间节点是早于其他事件的
+    Set<ApplicationEvent> earlyEventsToProcess = this.earlyApplicationEvents;
+    // 早期事件广播器是一个Set<ApplicationEvent>集合,保存了无法发布的早期事件,当SimpleApplicationEventMulticaster
+    // 创建完之后随即进行发布,同事也要将其保存的事件释放
+    this.earlyApplicationEvents = null;
+    if (earlyEventsToProcess != null) {
+        for (ApplicationEvent earlyEvent : earlyEventsToProcess) {
+            getApplicationEventMulticaster().multicastEvent(earlyEvent);
+        }
+    }
+}
+```
+
+我们来看一下Spring的事件监昕的简单用法
+
+定义监听事件
+
+```java
+public class TestEvent extends ApplicationonEvent { 
+    public String msg;
+    public TestEvent (Object source ) {
+        super (source );
+    }
+    public TestEvent (Object source , String msg ) { 
+        super(source);
+        this.msg = msg ; 
+    }
+    public void print () { 
+        System.out.println(msg) ;
+    }
+}
+```
+
+定义监昕器
+
+```java
+public class TestListener implement ApplicationListener { 
+    public void onApplicationEvent (ApplicationEvent event ) { 
+        if (event instanceof TestEvent ) { 
+            TestEvent testEvent = (TestEvent) event ;
+            testEvent print () ;
+        }
+    }
+}
+```
+
+添加配置文件
+
+```xml
+<bean id=” testListener” class=” com.test.event.TestListener ” />
+```
+
+测试
+
+```java
+@Test
+public void MyAopTest() {
+    ApplicationContext ac = new ClassPathXmlApplicationContext("spring-aop.xml");
+    TestEvent event = new TestEvent (“hello” ,”msg”) ;
+    context.publishEvent(event);
+}
+```
+
+源码分析
+
+```java
+protected void publishEvent(Object event, ResolvableType eventType) {
+    Assert.notNull(event, "Event must not be null");
+    if (logger.isTraceEnabled()) {
+        logger.trace("Publishing event in " + getDisplayName() + ": " + event);
+    }
+
+    // Decorate event as an ApplicationEvent if necessary
+    ApplicationEvent applicationEvent;
+    //支持两种事件1、直接继承ApplicationEvent，2、其他时间，会被包装为PayloadApplicationEvent，可以使用getPayload获取真实的通知内容
+    if (event instanceof ApplicationEvent) {
+        applicationEvent = (ApplicationEvent) event;
+    }
+    else {
+        applicationEvent = new PayloadApplicationEvent<Object>(this, event);
+        if (eventType == null) {
+            eventType = ((PayloadApplicationEvent)applicationEvent).getResolvableType();
+        }
+    }
+
+    // Multicast right now if possible - or lazily once the multicaster is initialized
+    if (this.earlyApplicationEvents != null) {
+        //如果有预制行添加到预制行，预制行在执行一次后被置为null，以后都是直接执行
+        this.earlyApplicationEvents.add(applicationEvent);
+    }
+    else {
+        //广播event事件
+        getApplicationEventMulticaster().multicastEvent(applicationEvent, eventType);
+    }
+
+    // Publish event via parent context as well...
+    //父bean同样广播
+    if (this.parent != null) {
+        if (this.parent instanceof AbstractApplicationContext) {
+            ((AbstractApplicationContext) this.parent).publishEvent(event, eventType);
+        }
+        else {
+            this.parent.publishEvent(event);
+        }
+    }
+}
+```
+
+查找所有的监听者，依次遍历，如果有线程池，利用线程池进行发送，如果没有则直接发送，如果针对比较大的并发量，我们应该采用线程池模式，将发送通知和真正的业务逻辑进行分离
+
+```java
+public void multicastEvent(final ApplicationEvent event, ResolvableType eventType) {
+    ResolvableType type = (eventType != null ? eventType : resolveDefaultEventType(event));
+    for (final ApplicationListener<?> listener : getApplicationListeners(event, type)) {
+        Executor executor = getTaskExecutor();
+        if (executor != null) {
+            executor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    invokeListener(listener, event);
+                }
+            });
+        }
+        else {
+            invokeListener(listener, event);
+        }
+    }
+}
+```
+
+调用invokeListener
+
+```java
+protected void invokeListener(ApplicationListener listener, ApplicationEvent event) {
+    ErrorHandler errorHandler = getErrorHandler();
+    if (errorHandler != null) {
+        try {
+            listener.onApplicationEvent(event);
+        }
+        catch (Throwable err) {
+            errorHandler.handleError(err);
+        }
+    }
+    else {
+        try {
+            listener.onApplicationEvent(event);
+        }
+        catch (ClassCastException ex) {
+            // Possibly a lambda-defined listener which we could not resolve the generic event type for
+            LogFactory.getLog(getClass()).debug("Non-matching event type for listener: " + listener, ex);
+        }
+    }
+}
+```
+
+# 初始化其他的单例Bean(非延迟加载的)
+
+```java
+protected void finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory) {
+    // Initialize conversion service for this context.
+    // 判断有无ConversionService(bean属性类型转换服务接口),并初始化
+    if (beanFactory.containsBean(CONVERSION_SERVICE_BEAN_NAME)
+            && beanFactory.isTypeMatch(CONVERSION_SERVICE_BEAN_NAME, ConversionService.class)) {
+        beanFactory.setConversionService(beanFactory.getBean(CONVERSION_SERVICE_BEAN_NAME, ConversionService.class));
+    }
+
+    //
+    // Register a default embedded value resolver if no bean post-processor
+    // (such as a PropertyPlaceholderConfigurer bean) registered any before:
+    // at this point, primarily for resolution in annotation attribute values.
+    // 如果beanFactory中不包含EmbeddedValueResolver,则向其中添加一个EmbeddedValueResolver
+    // EmbeddedValueResolver-->解析bean中的占位符和表达式
+    if (!beanFactory.hasEmbeddedValueResolver()) {
+        beanFactory.addEmbeddedValueResolver(strVal -> getEnvironment().resolvePlaceholders(strVal));
+    }
+
+    // Initialize LoadTimeWeaverAware beans early to allow for registering their transformers early.
+    // 初始化LoadTimeWeaverAware类型的bean
+    // LoadTimeWeaverAware-->加载Spring Bean时织入第三方模块,如AspectJ
+    String[] weaverAwareNames = beanFactory.getBeanNamesForType(LoadTimeWeaverAware.class, false, false);
+    for (String weaverAwareName : weaverAwareNames) {
+        getBean(weaverAwareName);
+    }
+
+    // Stop using the temporary ClassLoader for type matching.
+    // 释放临时类加载器
+    beanFactory.setTempClassLoader(null);
+
+    // Allow for caching all bean definition metadata, not expecting further changes.
+    // 冻结缓存的BeanDefinition元数据
+    beanFactory.freezeConfiguration();
+
+    // Instantiate all remaining (non-lazy-init) singletons.
+    // 初始化其他的非延迟加载的单例bean
+    beanFactory.preInstantiateSingletons();
+}
+```
+
+我们重点看  beanFactory.preInstantiateSingletons();
+
+```java
+@Override
+public void preInstantiateSingletons() throws BeansException {
+    if (logger.isTraceEnabled()) {
+        logger.trace("Pre-instantiating singletons in " + this);
+    }
+
+    // Iterate over a copy to allow for init methods which in turn register new bean definitions.
+    // While this may not be part of the regular factory bootstrap, it does otherwise work fine.
+    List<String> beanNames = new ArrayList<>(this.beanDefinitionNames);
+
+    // Trigger initialization of all non-lazy singleton beans...
+    for (String beanName : beanNames) {
+        RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
+        if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
+            if (isFactoryBean(beanName)) {
+                Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
+                if (bean instanceof FactoryBean) {
+                    final FactoryBean<?> factory = (FactoryBean<?>) bean;
+                    boolean isEagerInit;
+                    if (System.getSecurityManager() != null && factory instanceof SmartFactoryBean) {
+                        isEagerInit = AccessController.doPrivileged((PrivilegedAction<Boolean>)
+                                        ((SmartFactoryBean<?>) factory)::isEagerInit,
+                                getAccessControlContext());
+                    }
+                    else {
+                        isEagerInit = (factory instanceof SmartFactoryBean &&
+                                ((SmartFactoryBean<?>) factory).isEagerInit());
+                    }
+                    if (isEagerInit) {
+                        getBean(beanName);
+                    }
+                }
+            }
+            else {
+                getBean(beanName);
+            }
+        }
+    }
+
+}
+```
+
+
 
 
 
