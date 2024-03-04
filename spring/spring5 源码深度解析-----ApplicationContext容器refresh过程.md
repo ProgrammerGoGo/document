@@ -1,13 +1,13 @@
 
 > [spring5 源码深度解析-----ApplicationContext容器refresh过程](https://www.cnblogs.com/java-chen-hao/p/11579591.html)
-
+> [ClassPathXmlApplicationContext的启动](https://www.cnblogs.com/wade-luffy/p/6072460.html)
 
 refresh方法：
 
 ```java
 public void refresh() throws BeansException, IllegalStateException {
     synchronized (this.startupShutdownMonitor) {
-        //准备刷新的上下文 环境  
+        //准备刷新的上下文环境，例如对系统属性或者环境变量进行准备及验证。
         prepareRefresh();
         //初始化BeanFactory，并进行XML文件读取  
         /* 
@@ -115,6 +115,22 @@ protected void prepareRefresh() {
 }
 ```
 
+假如现在有这样一个需求，工程在运行过程中用到的某个设置（例如classpath）是从系统环境变量中取得的，而如果用户没有在系统环境变量中配置这个参数，那么工程可能不会工作。这一要求可能会有各种各样的解决办法，当然，在Spring中可以这样做，你可以直接修改Spring的源码，例如修改ClassPathXmlApplicationContext。当然，最好的办法还是对源码进行扩展，我们可以自定义类：
+
+```java
+public class MyClassPathXmlApplicationContext extends ClassPathXmlApplicationContext{
+    public MyClassPathXmlApplicationContext(String... configLocations ){
+        super(configLocations);
+    }
+    protected void initPropertySources() {
+        //添加验证要求
+        getEnvironment().setRequiredProperties("classpath");
+    }
+}
+```
+
+我们自定义了继承自ClassPathXmlApplicationContext的MyClassPathXmlApplicationContext，并重写了initPropertySources方法，在方法中添加了我们的个性化需求，那么在验证的时候也就是程序走到getEnvironment().validateRequiredProperties()代码的时候，如果系统并没有检测到对应classpath的环境变量，那么将抛出异常。
+
 # obtainFreshBeanFactory->读取xml并初始化BeanFactory
 
 obtainFreshBeanFactory方法从字面理解是获取beanFactory。ApplicationContext是对BeanFactory的扩展，在其基础上添加了大量的基础应用，obtainFreshBeanFactory正是实现beanFactory的地方，经过这个函数后ApplicationContext就有了BeanFactory的全部功能。我们看下此方法的代码：
@@ -168,6 +184,19 @@ protected final void refreshBeanFactory() throws BeansException {
         throw new ApplicationContextException("I/O error parsing bean definition source for " + getDisplayName(), ex);
     }
 }
+
+protected void customizeBeanFactory(DefaultListableBeanFactory beanFactory) {
+    //如果属性allowBeanDefinitionOverriding不为空，设置给beanFactory对象相应属性，
+    //此属性的含义：是否允许覆盖同名称的不同定义的对象
+    if (this.allowBeanDefinitionOverriding != null) {
+        beanFactory.setAllowBeanDefinitionOverriding(this.allowBeanDefinitionOverriding);
+    }
+    //如果属性allowCircularReferences不为空，设置给beanFactory对象相应属性，
+    //此属性的含义：是否允许bean之间存在循环依赖
+    if (this.allowCircularReferences != null) {
+        beanFactory.setAllowCircularReferences(this.allowCircularReferences);
+    }
+}
 ```
 
 加载BeanDefinition
@@ -178,17 +207,21 @@ protected final void refreshBeanFactory() throws BeansException {
 @Override
 protected void loadBeanDefinitions(DefaultListableBeanFactory beanFactory) throws BeansException, IOException {
     // Create a new XmlBeanDefinitionReader for the given BeanFactory.
+    //为指定beanFactory创建XmlBeanDefinitionReader
     XmlBeanDefinitionReader beanDefinitionReader = new XmlBeanDefinitionReader(beanFactory);
 
     // Configure the bean definition reader with this context's
     // resource loading environment.
+    //对beanDefinitionReader进行环境变量的设置
     beanDefinitionReader.setEnvironment(this.getEnvironment());
     beanDefinitionReader.setResourceLoader(this);
     beanDefinitionReader.setEntityResolver(new ResourceEntityResolver(this));
 
     // Allow a subclass to provide custom initialization of the reader,
     // then proceed with actually loading the bean definitions.
+    //对BeanDefinitionReader进行设置，可以覆盖
     initBeanDefinitionReader(beanDefinitionReader);
+    //使用XmlBeanDefinitionReader的loadBeanDefinitions方法进行配置文件的加载及注册
     loadBeanDefinitions(beanDefinitionReader);
 }
 ```
