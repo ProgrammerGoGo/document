@@ -1,3 +1,67 @@
 
-> [Spring是如何利用“三级缓存”巧妙解决Bean的循环依赖问题的？](https://zhuanlan.zhihu.com/p/162316846)
+> [Spring是如何利用“三级缓存”巧妙解决Bean的循环依赖问题的？](https://zhuanlan.zhihu.com/p/162316846)  
 > [spring源码系列（一）——spring循环引用](https://blog.csdn.net/java_lyvee/article/details/101793774?spm=1001.2014.3001.5502)
+
+
+```java
+@Configurable
+@ComponentScan("com.shadow")
+public class Appconfig {
+}
+
+
+@Component
+public class X {
+
+	@Autowired
+	Y y;
+
+	public X(){
+		System.out.println("X create");
+	}
+}
+
+
+@Component
+public class Y {
+	@Autowired
+	X x;
+	
+	public Y(){
+		System.out.println("Y create");
+	}
+}
+
+
+
+@Component
+public class Z implements ApplicationContextAware {
+	@Autowired
+	X x;//注入X
+
+    //构造方法
+	public Z(){
+		System.out.println("Z create");
+	}
+
+    //生命周期初始化回调方法
+	@PostConstruct
+	public void zinit(){
+		System.out.println("call z lifecycle init callback");
+	}
+
+	//ApplicationContextAware 回调方法
+	@Override
+	public void setApplicationContext(ApplicationContext ac) {
+		System.out.println("call aware callback");
+	}
+}
+```
+
+spring的bean是在 `AbstractApplicationContext#finishBeanFactoryInitialization()` 方法完成的初始化，即循环依赖也在这个方法里面完成的。该方法里面调用了一个非常重要的方法 doGetBean 的方法.
+
+针对上面的源码我做一个简单的总结：首先spring从单例池当中获取x，前面说过获取不到，然后判断是否在正在创建bean的集合当中，前面分析过这个集合现在存在x，和y；所以if成立进入分支；进入分支spring直接从三级缓存中获取x，根据前面的分析三级缓存当中现在什么都没有，故而返回nll；进入下一个if分支，从二级缓存中获取一个ObjectFactory工厂对象；根据前面分析，二级缓存中存在x，故而可以获取到；跟着调用singletonFactory.getObject();拿到一个半成品的x bean对象；然后把这个x对象放到三级缓存，同时把二级缓存中x清除（此时二级缓存中只存在一个y了，而三级缓存中多了一个x）；
+
+问题1、为什么首先是从三级缓存中取呢？主要是为了性能，因为三级缓存中存的是一个x对象，如果能取到则不去二级找了；哪有人会问二级有什么用呢？为什么一开始要存工厂呢？为什么一开始不直接存三级缓存？这里稍微有点复杂，如果直接存到三级缓存，只能存一个对象，假设以前存这个对象的时候这对象的状态为xa，但是我们这里y要注入的x为xc状态，那么则无法满足；但是如果存一个工厂，工厂根据情况产生任意xa或者xb或者xc等等情况；比如说aop的情况下x注入y，y也注入x；而y中注入的x需要加代理（aop），但是加代理的逻辑在注入属性之后，也就是x的生命周期周到注入属性的时候x还不是一个代理对象，那么这个时候把x存起来，然后注入y，获取、创建y，y注入x，获取x；拿出来的x是一个没有代理的对象；但是如果存的是个工厂就不一样；首先把一个能产生x的工厂存起来，然后注入y，注入y的时候获取、创建y，y注入x，获取x，先从三级缓存获取，为null，然后从二级缓存拿到一个工厂，调用工厂的getObject()；spring在getObject方法中判断这个时候x被aop配置了故而需要返回一个代理的x出来注入给y。当然有的读者会问你不是前面说过getObject会返回一个当前状态的xbean嘛？我说这个的前提是不去计较getObject的具体源码，因为这块东西比较复杂，需要去了解spring的后置处理器功能，这里先不讨论，总之getObject会根据情况返回一个x，但是这个x是什么状态，spring会自己根据情况返回；
+
+问题2、为什么要从二级缓存remove？因为如果存在比较复杂的循环依赖可以提高性能；比如x，y，z相互循环依赖，那么第一次y注入x的时候从二级缓存通过工厂返回了一个x，放到了三级缓存，而第二次z注入x的时候便不需要再通过工厂去获得x对象了。因为if分支里面首先是访问三级缓存；至于remove则是为了gc吧；
