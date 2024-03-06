@@ -1,7 +1,7 @@
 
 > [Spring是如何利用“三级缓存”巧妙解决Bean的循环依赖问题的？](https://zhuanlan.zhihu.com/p/162316846)  
-> [spring源码系列（一）——spring循环引用](https://blog.csdn.net/java_lyvee/article/details/101793774?spm=1001.2014.3001.5502)
-> [spring循环依赖](https://blog.csdn.net/wang489687009/article/details/84538634?spm=1001.2014.3001.5502)
+> [spring源码系列（一）——spring循环引用](https://blog.csdn.net/java_lyvee/article/details/101793774?spm=1001.2014.3001.5502)  
+> [spring循环依赖](https://blog.csdn.net/wang489687009/article/details/84538634?spm=1001.2014.3001.5502)  
 > [【Spring源码三千问】哪些循环依赖问题Spring解决不了？](https://blog.csdn.net/wang489687009/article/details/120546430)  
 > [【Spring源码三千问】@Lazy原理分析——它为什么可以解决特殊的循环依赖问题？](https://blog.csdn.net/wang489687009/article/details/120577472)
 
