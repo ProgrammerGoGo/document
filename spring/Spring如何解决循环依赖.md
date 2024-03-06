@@ -1,7 +1,7 @@
 
 > [Spring是如何利用“三级缓存”巧妙解决Bean的循环依赖问题的？](https://zhuanlan.zhihu.com/p/162316846)  
 > [spring源码系列（一）——spring循环引用](https://blog.csdn.net/java_lyvee/article/details/101793774?spm=1001.2014.3001.5502)  
-> [【Spring源码三千问】哪些循环依赖问题Spring解决不了？](https://blog.csdn.net/wang489687009/article/details/120546430)
+> [【Spring源码三千问】哪些循环依赖问题Spring解决不了？](https://blog.csdn.net/wang489687009/article/details/120546430)  
 > [【Spring源码三千问】@Lazy原理分析——它为什么可以解决特殊的循环依赖问题？](https://blog.csdn.net/wang489687009/article/details/120577472)
 
 
@@ -67,3 +67,14 @@ spring的bean是在 `AbstractApplicationContext#finishBeanFactoryInitialization(
 问题1、为什么首先是从三级缓存中取呢？主要是为了性能，因为三级缓存中存的是一个x对象，如果能取到则不去二级找了；哪有人会问二级有什么用呢？为什么一开始要存工厂呢？为什么一开始不直接存三级缓存？这里稍微有点复杂，如果直接存到三级缓存，只能存一个对象，假设以前存这个对象的时候这对象的状态为xa，但是我们这里y要注入的x为xc状态，那么则无法满足；但是如果存一个工厂，工厂根据情况产生任意xa或者xb或者xc等等情况；比如说aop的情况下x注入y，y也注入x；而y中注入的x需要加代理（aop），但是加代理的逻辑在注入属性之后，也就是x的生命周期周到注入属性的时候x还不是一个代理对象，那么这个时候把x存起来，然后注入y，获取、创建y，y注入x，获取x；拿出来的x是一个没有代理的对象；但是如果存的是个工厂就不一样；首先把一个能产生x的工厂存起来，然后注入y，注入y的时候获取、创建y，y注入x，获取x，先从三级缓存获取，为null，然后从二级缓存拿到一个工厂，调用工厂的getObject()；spring在getObject方法中判断这个时候x被aop配置了故而需要返回一个代理的x出来注入给y。当然有的读者会问你不是前面说过getObject会返回一个当前状态的xbean嘛？我说这个的前提是不去计较getObject的具体源码，因为这块东西比较复杂，需要去了解spring的后置处理器功能，这里先不讨论，总之getObject会根据情况返回一个x，但是这个x是什么状态，spring会自己根据情况返回；
 
 问题2、为什么要从二级缓存remove？因为如果存在比较复杂的循环依赖可以提高性能；比如x，y，z相互循环依赖，那么第一次y注入x的时候从二级缓存通过工厂返回了一个x，放到了三级缓存，而第二次z注入x的时候便不需要再通过工厂去获得x对象了。因为if分支里面首先是访问三级缓存；至于remove则是为了gc吧；
+
+
+Spring 默认为我们解决了常规场景下的循环依赖问题。但是有些特殊的场景下的循环依赖，Spring 默认是没有解决的。
+主要的场景如下：
+
+* prototype 类型的循环依赖
+* constructor 注入的循环依赖
+* @Async 类型的 Bean 的循环依赖
+
+这些特殊的场景，我们都可以通过 @Lazy 来解决。  
+@Lazy 的本质就是将注入的依赖变成了一个代理对象。使用 @Lazy 时，不会触发依赖 bean 的加载。
