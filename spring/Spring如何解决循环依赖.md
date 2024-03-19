@@ -79,3 +79,37 @@ Spring 默认为我们解决了常规场景下的循环依赖问题。但是有�
 
 这些特殊的场景，我们都可以通过 @Lazy 来解决。  
 @Lazy 的本质就是将注入的依赖变成了一个代理对象。使用 @Lazy 时，不会触发依赖 bean 的加载。
+
+
+
+# Spring 为什么不用二级缓存来解决循环依赖问题？
+
+> [【Spring源码三千问】为什么要用三级缓存来解决循环依赖问题？二级缓存行不行？一级缓存行不行？](https://blog.csdn.net/wang489687009/article/details/120655156)
+
+Spring 原本的设计是，bean 的创建过程分三个阶段：
+
+1 创建实例 createBeanInstance – 创建出 bean 的原始对象
+
+2 填充依赖 populateBean – 利用反射，使用 BeanWrapper 来设置属性值
+
+3 initializeBean – 执行 bean 创建后的处理，包括 AOP 对象的产生
+
+在没有循环依赖的场景下：第 1,2 步都是 bean 的原始对象，第 3 步 initializeBean 时，才会生成 AOP 代理对象。
+
+循环依赖属于一个特殊的场景，如果在第 3 步 initializeBean 时才去生成 AOP 代理 bean 的话，那么在第 2 步 populateBean 注入循环依赖 bean 时就拿不到 AOP 代理 bean 进行注入。所以，循环依赖打破了 AOP 代理 bean 生成的时机，需要在 populateBean 之前就生成 AOP 代理 bean。而且，生成 AOP 代理需要执行 BeanPostProcessor，而 Spring 原本的设计是在第 3 步 initializeBean 时才去调用 BeanPostProcessor 的。并不是每个 bean 都需要进行这样的处理，所以， Spring 没有直接在 createBeanInstance 之后直接生成 bean 的早期引用，而是将 bean 的原始对象包装成了一个 ObjectFactory 放到了三级缓存 Map<String, Object> earlySingletonObjects。当需要用到 bean 的早期引用的时候，才通过三级缓存 Map<String, ObjectFactory<?>> singletonFactories 来进行获取。
+
+如果只使用二级缓存来解决循环依赖的话，那么每个 bean 的创建流程中都需要插入一个流程——创建 bean 的早期引用放入二级缓存。其实，在真实的开发中，绝大部分的情况下都不涉及到循环依赖，而且 createBeanInstance --> populateBean --> initializeBean 这个流程也更加符合常理。
+
+所以，猜想 Spring 不用二级缓存来解决循环依赖问题，是为了保证处理时清晰明了，bean 的创建就是三个阶段: createBeanInstance --> populateBean --> initializeBean只有碰到 AOP 代理 bean 被循环依赖时的场景，才去特殊处理，提前生成 AOP 代理 bean
+
+# 辟谣：使用二级缓存解决不了 AOP 代理 bean 的循环依赖？
+
+在网上有看到文章分析，说 Spring 必须要使用三级缓存是因为只用二级缓存解决不了 AOP 代理 bean 的循环依赖问题。通过前面的分析，理论上来说，使用二级缓存是可以解决 AOP 代理 bean 的循环依赖的。只是 Spring 没有选择这样去实现。
+
+AOP 代理的产生是在：bean 创建的第三个阶段 initializeBean 的时候，它会处理 @Async、@Schedule 的代理对象 和 @Around 等切入点表达增强的代理对象 AsyncAnnotationBeanPostProcessor —> 处理 @Async AnnotationAwareAspectJAutoProxyCreator -——> 处理 @Around 等 advisor 切入点表达式的 AOP 代理（@Transactional 也归为 advisor 一类，它使用的是内置的 BeanFactoryTransactionAttributeSourceAdvisor）
+
+当 AOP 代理 bean 被循环依赖时，AOP 代理的产生时机就会提前。Spring 会提前通过三级缓存 singletonFactories 来获取到 bean 的早期引用，这个早期引用就是 Spring 容器最终暴露的 bean 的引用。
+
+
+
+
