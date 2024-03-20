@@ -6,6 +6,7 @@
 > [【Spring源码三千问】哪些循环依赖问题Spring解决不了？](https://blog.csdn.net/wang489687009/article/details/120546430)    
 > [【Spring源码三千问】@Lazy原理分析——它为什么可以解决特殊的循环依赖问题？](https://blog.csdn.net/wang489687009/article/details/120577472)  
 > [【Spring源码三千问】为什么要用三级缓存来解决循环依赖问题？二级缓存行不行？一级缓存行不行？](https://blog.csdn.net/wang489687009/article/details/120655156)  
+> [【Spring 源码三千问】同样是AOP代理bean，为什么@Async标记的bean循环依赖时会报错？](https://blog.csdn.net/wang489687009/article/details/129409335?spm=1001.2014.3001.5502)
 
 
 ```java
