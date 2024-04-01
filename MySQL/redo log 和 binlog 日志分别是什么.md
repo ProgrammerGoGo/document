@@ -1,5 +1,4 @@
 
-> [23 MySQL是怎么保证数据不丢的？](https://learn.lianglianglee.com/%e4%b8%93%e6%a0%8f/MySQL%e5%ae%9e%e6%88%9845%e8%ae%b2/23%20%20MySQL%e6%98%af%e6%80%8e%e4%b9%88%e4%bf%9d%e8%af%81%e6%95%b0%e6%8d%ae%e4%b8%8d%e4%b8%a2%e7%9a%84%ef%bc%9f.md)中详细描述了binlog和redolog的写入机制
 
 # redo log
 
@@ -35,6 +34,13 @@ InnoDB的`redo log`是固定大小的，比如可以配置为一组4个文件，
 * `redo log` 是物理日志，记录的是“在某个数据页上做了什么修改”；`binlog` 是逻辑日志，记录的是这个语句的原始逻辑，比如“给ID=2这一行的c字段加1 ”。
 
 * `redo log` 是循环写的，空间固定会用完；`binlog` 是可以追加写入的。“追加写”是指 `binlog` 文件写到一定大小后会切换到下一个，并不会覆盖以前的日志。
+
+# binlog和redolog的写入机制
+
+> [23 MySQL是怎么保证数据不丢的？](https://learn.lianglianglee.com/%e4%b8%93%e6%a0%8f/MySQL%e5%ae%9e%e6%88%9845%e8%ae%b2/23%20%20MySQL%e6%98%af%e6%80%8e%e4%b9%88%e4%bf%9d%e8%af%81%e6%95%b0%e6%8d%ae%e4%b8%8d%e4%b8%a2%e7%9a%84%ef%bc%9f.md)中详细描述了binlog和redolog的写入机制
+
+
+# 问题
 
 > [15 答疑文章（一）：日志和索引相关问题](https://learn.lianglianglee.com/%e4%b8%93%e6%a0%8f/MySQL%e5%ae%9e%e6%88%9845%e8%ae%b2/15%20%20%e7%ad%94%e7%96%91%e6%96%87%e7%ab%a0%ef%bc%88%e4%b8%80%ef%bc%89%ef%bc%9a%e6%97%a5%e5%bf%97%e5%92%8c%e7%b4%a2%e5%bc%95%e7%9b%b8%e5%85%b3%e9%97%ae%e9%a2%98.md)
 
