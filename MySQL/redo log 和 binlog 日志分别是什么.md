@@ -26,6 +26,8 @@ InnoDB的`redo log`是固定大小的，比如可以配置为一组4个文件，
 
 因为最开始MySQL里并没有InnoDB引擎。MySQL自带的引擎是MyISAM，但是MyISAM没有crash-safe的能力，`binlog`日志只能用于归档。而InnoDB是另一个公司以插件形式引入MySQL的，既然只依靠`binlog`是没有`crash-safe`能力的，所以InnoDB使用另外一套日志系统——也就是`redo log`来实现`crash-safe`能力。
 
+> [binlog的两种格式](https://learn.lianglianglee.com/%e4%b8%93%e6%a0%8f/MySQL%e5%ae%9e%e6%88%9845%e8%ae%b2/24%20%20MySQL%e6%98%af%e6%80%8e%e4%b9%88%e4%bf%9d%e8%af%81%e4%b8%bb%e5%a4%87%e4%b8%80%e8%87%b4%e7%9a%84%ef%bc%9f.md)
+
 # redo log 和 binlog 日志的不同点：
 `redo log` 和 `binlog` 日志的不同点：
 
