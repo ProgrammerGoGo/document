@@ -5,3 +5,6 @@
 
 
 ThreadLocal和synchronized的区别？？？
+
+Spring事务中ThreadLocal的使用？？？
+
